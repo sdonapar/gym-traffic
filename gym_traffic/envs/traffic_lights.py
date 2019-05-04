@@ -36,4 +36,4 @@ class TrafficLightTwoWay(TrafficLight):
             return action == 0 and self.step > self.yield_time
         else:
             raise ValueError("Invalid state {}".format(self.state))
-        end
+

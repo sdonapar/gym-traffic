@@ -1,6 +1,7 @@
 from gym import Env
 from gym import error, spaces, utils
 from gym.utils import seeding
+from gym.envs.classic_control import rendering
 import traci
 import traci.constants as tc
 from scipy.misc import imread
@@ -30,6 +31,7 @@ class TrafficEnv(Env):
         self.mode = mode
         self._seed()
         self.loops = loops
+        self.loopid = None
         self.exitloops = exitloops
         self.loop_variables = [tc.LAST_STEP_MEAN_SPEED, tc.LAST_STEP_TIME_SINCE_DETECTION, tc.LAST_STEP_VEHICLE_NUMBER]
         self.lanes = lanes
@@ -49,9 +51,8 @@ class TrafficEnv(Env):
         self.sumo_cmd = [binary] + args
         self.sumo_step = 0
         self.lights = lights
-        self.action_space = spaces.DiscreteToMultiDiscrete(
-            spaces.MultiDiscrete([[0, len(light.actions) - 1] for light in self.lights]), 'all')
-
+        #self.action_space = spaces.Discrete(4.0)
+        self.action_space = spaces.MultiDiscrete([[1, len(light.actions)] for light in self.lights])
         trafficspace = spaces.Box(low=float('-inf'), high=float('inf'),
                                   shape=(len(self.loops) * len(self.loop_variables),))
         lightspaces = [spaces.Discrete(len(light.actions)) for light in self.lights]
@@ -77,6 +78,7 @@ class TrafficEnv(Env):
             self.write_routes()
             traci.start(self.sumo_cmd)
             for loopid in self.loops:
+                self.loopid
                 traci.inductionloop.subscribe(loopid, self.loop_variables)
             self.sumo_step = 0
             self.sumo_running = True
@@ -105,12 +107,15 @@ class TrafficEnv(Env):
         #    reward += traci.inductionloop.getLastStepVehicleNumber(loop)
         return max(reward, 0)
 
-    def _step(self, action):
-        action = self.action_space(action)
+    def step(self, action):
+        #action = self.action_space(action)
+        action = self.action_space.sample()[0][1]
+        #action = self.action_space.sample()
+        #print(action)
         self.start_sumo()
         self.sumo_step += 1
-        assert (len(action) == len(self.lights))
-        for act, light in zip(action, self.lights):
+        assert (len([action]) == len(self.lights))
+        for act, light in zip([action], self.lights):
             signal = light.act(act)
             traci.trafficlights.setRedYellowGreenState(light.id, signal)
         traci.simulationStep()
@@ -127,7 +132,7 @@ class TrafficEnv(Env):
             traci.gui.screenshot("View #0", self.pngfile)
 
     def _observation(self):
-        res = traci.inductionloop.getSubscriptionResults()
+        res = traci.inductionloop.getSubscriptionResults(self.loopid)
         obs = []
         for loop in self.loops:
             for var in self.loop_variables:
@@ -136,7 +141,7 @@ class TrafficEnv(Env):
         lightobs = [light.state for light in self.lights]
         return (trafficobs, lightobs)
 
-    def _reset(self):
+    def reset(self):
         self.stop_sumo()
         # sleep required on some systems
         if self.sleep_between_restart > 0:
