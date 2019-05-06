@@ -52,10 +52,14 @@ class TrafficEnv(Env):
         self.sumo_step = 0
         self.lights = lights
         #self.action_space = spaces.Discrete(4.0)
-        self.action_space = spaces.MultiDiscrete([[1, len(light.actions)] for light in self.lights])
-        trafficspace = spaces.Box(low=float('-inf'), high=float('inf'),
-                                  shape=(len(self.loops) * len(self.loop_variables),))
+        #self.action_space = [spaces.Discrete([len(light.actions)]) for light in self.lights]
         lightspaces = [spaces.Discrete(len(light.actions)) for light in self.lights]
+        total_actions = sum([len(light.actions) for light in self.lights])
+        self.action_space = spaces.Discrete(total_actions)
+        trafficspace = spaces.Box(low=float('-inf'), high=float('inf'),
+        shape=(len(self.loops) * len(self.loop_variables),))
+        lightspaces = [spaces.Discrete(len(light.actions)) for light in self.lights]
+        self.lightspaces = lightspaces
         self.observation_space = spaces.Tuple([trafficspace] + lightspaces)
 
         self.sumo_running = False
@@ -109,13 +113,13 @@ class TrafficEnv(Env):
 
     def step(self, action):
         #action = self.action_space(action)
-        action = self.action_space.sample()[0][1]
+        #action = self.action_space.sample()[0][1]
         #action = self.action_space.sample()
         #print(action)
         self.start_sumo()
         self.sumo_step += 1
-        assert (len([action]) == len(self.lights))
-        for act, light in zip([action], self.lights):
+        assert (len(action) == len(self.lights))
+        for act, light in zip(action, self.lights):
             signal = light.act(act)
             traci.trafficlights.setRedYellowGreenState(light.id, signal)
         traci.simulationStep()

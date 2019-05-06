@@ -9,13 +9,14 @@ fh = open("test.out","w")
 #env = gym.make('Traffic-Simple-gui-v0')
 env = gym.make('Traffic-Simple-cli-v0')
 if monitor:
-    env = Monitor(env, "output/traffic/simple/random", force=True)
+    #env = Monitor(env, "output/traffic/simple/random", force=True)
+    env = Monitor(env, "output/", force=True)
 for i_episode in tqdm(range(500)):
     observation = env.reset()
     for t in tqdm(range(1000)):
         #env.render()
         #print(observation)
-        action = env.action_space.sample()[0][1]
+        action = [light.sample() for light in env.lightspaces]
         #time.sleep(1)
         observation, reward, done, info = env.step(action)
         fh.write(f"{action},{observation},{reward},{done},{info}\n")
